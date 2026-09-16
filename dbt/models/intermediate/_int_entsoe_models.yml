@@ -1,0 +1,66 @@
+version: 2
+
+models:
+  - name: in_day_ahead_prices__enriched
+    description: >
+      One row per market time unit with derived columns: Dutch calendar
+      fields, negative-price flag, position within the day relative to that
+      day's own mean and rank, ramp from the previous slot, and a peak /
+      off-peak classification. No aggregation, no filtering, no join.
+ 
+      Absolute price is not comparable across days, so the deviation and rank
+      columns exist to make within-day position explicit.
+ 
+      is_peak_period encodes the EPEX/EEX 08:00-20:00 working-day convention.
+      It is a convention, not derived from the data.
+    columns:
+      - name: period_start
+        description: "Start of the market time unit, UTC. Grain of this model."
+        tests:
+          - unique
+          - not_null
+      - name: dutch_date
+        description: >
+          Calendar date in Europe/Amsterdam, from a named timezone so DST is
+          handled by Postgres. Matches the TenneT side so both group alike.
+        tests:
+          - not_null
+      - name: dutch_hour
+        tests:
+          - not_null
+      - name: dutch_iso_weekday
+        description: "ISO weekday"
+        tests:
+          - not_null
+          - accepted_values:
+              arguments: 
+                values: [1, 2, 3, 4, 5, 6, 7]
+      - name: is_negative_price
+        description: >
+          True when the day-ahead price cleared below zero, which happens
+          during solar surplus on mild low-demand days.
+        tests:
+          - not_null
+      - name: price_rank_in_day
+        description: "1 = cheapest slot of that Dutch day."
+        tests:
+          - not_null
+      - name: daily_mean_price_eur_mwh
+        description: "Mean price across all slots of the same dutch day."
+        tests:
+          - not_null
+      - name: price_deviation_from_daily_mean_eur_mwh
+        description: "price_eur_mwh minus that day's mean, Positive = above average."
+        tests:
+          - not_null
+      - name: price_change_from_previous_eur_mwh
+        description: >
+          Ramp from the previous slot. Deliberately crosses midnight, so it
+          is null only for the single earliest row in the whole table.
+ 
+      - name: is_peak_period
+        description: >
+          EPEX/EEX convention: 08:00-20:00 Dutch local on Monday-Friday.
+        tests: 
+          - not_null
+          

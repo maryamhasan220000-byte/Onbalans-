@@ -1,0 +1,49 @@
+version: 2
+
+models:
+  - name: stg_entsoe__day_ahead_prices
+    description: >
+      One row per market time unit, typed. Casting and renaming only, no derived columns.
+      Grain matches the source: 96 rows per Dutch day at PT15M, 24 at PT60M.
+    columns:
+      - name: period_start
+        description: "Start of the market time unit, UTC. Primary key."
+        tests:
+          - unique
+          - not_null 
+      - name: period_end
+        description: "End of the market time unit, UTC. Equals the next period start."
+        tests:
+          - not_null
+      - name: position_in_day
+        description: >
+          Day-ahead clearing prices. Negative values are real and expected around
+          midday solar surplus. Null only if the source text failed to parse, which 
+          assert_no_silent_prices_cast_failures catches.
+        tests:
+          - not_null
+      - name: was_forward_filled
+        description: >
+          True when the loader carried the previous price into a position
+          ENTSO-E omitted under curveType A03
+        tests:
+          - not_null
+      - name: curve_type
+        description: "A03 = variable sized block (sparse position). A01 = all present."
+        tests:
+          - accepted_values:
+              arguments: 
+                values: ['A01', 'A03']
+      - name: currency
+        tests:
+          - accepted_values:
+              arguments: 
+                values: ['EUR']
+      - name: price_unit
+        tests:
+          - accepted_values:
+              arguments: 
+                values: ['MWH']
+        
+        
+          

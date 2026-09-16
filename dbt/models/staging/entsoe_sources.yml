@@ -1,0 +1,47 @@
+version: 2
+
+sources:
+  - name: entsoe
+    schema: raw
+    description: >
+      ENTSO-E day ahead prices loader output. Prices are text exactly as
+      ENTSO-E sent them; casting happens in staging.
+    tables:
+      - name: day_ahead_prices
+        description: "One row per market time unit, gaps forward filled by the loader."
+        config: 
+          loaded_at_field: loaded_at
+          freshness: 
+            warn_after: 
+              count: 36
+              period: hour
+            error_after: 
+              count: 72
+              period: hour
+        columns:
+          - name: period_start
+            tests:
+              - unique
+              - not_null
+          - name: period_end
+            tests:
+              - not_null
+          - name: source_file
+            tests:
+              - not_null
+          - name: was_forward_filled
+            tests:
+              - not_null
+      - name: loaded_entsoe_files
+        description: "Which bronze XML documents have been loaded."
+        columns:
+          - name: path
+            tests:
+              - unique
+              - not_null
+              
+
+            
+            
+
+    

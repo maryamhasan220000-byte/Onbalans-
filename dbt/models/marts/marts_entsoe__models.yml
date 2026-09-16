@@ -1,0 +1,108 @@
+version: 2
+
+models:
+  - name: fct_day_ahead_price
+    description: >
+      Analysis-ready fact table. One row per market time unit. Materialized
+      as a table because dashboards query it repeatedly and the imbalance
+      spread mart range-joins against it.
+    columns:
+      - name: period_start
+        description: "Start of the market time unit, UTC. Grain of this table."
+        tests:
+          - unique
+          - not_null
+      - name: period_end
+        description: "End of the market time unit. Equals the next period_start."
+        tests: 
+          - not_null    
+      - name: price_eur_mwh
+        description: "Day-ahead clearing price. Negative values are real."
+        tests:
+          - not_null
+      - name: is_negative_price
+        tests:
+          - not_null
+      - name: is_peak_period
+        description: "EPEX/EEX convention: 08:00-20:00 Dutch local, Mon-Fri."
+        tests:
+          - not_null
+
+  - name: agg_day_ahead_price_daily
+    description: >
+      One row per Dutch market day. Price level, spread, volatility,
+      negative-price incidence, and the peak versus off-peak comparison.
+
+      peak_premium_eur_mwh is often NEGATIVE in this market: midday solar
+      makes the 08:00-20:00 block cheaper than the evening and overnight
+      off-peak, inverting the traditional convention.
+    columns:
+      - name: dutch_date
+        description: "Dutch market day. Grain of this table."
+        tests:
+          - unique
+          - not_null
+      - name: slots_present
+        description: "Market time units held for this day."
+        tests:
+          - not_null
+      - name: slots_expected
+        description: >
+          Derived from the day's own span and resolution, so 23- and
+          25-hour DST days come out correct without a special case.
+        tests:
+          - not_null
+      - name: mean_price_eur_mwh
+        tests:
+          - not_null
+      - name: negative_slot_share
+        description: "negative_slots / slots_present, 0 to 1."
+        tests:
+          - not_null
+
+  - name: agg_day_ahead_price_hourly_profile
+    description: >
+      The average shape of a Dutch day. One row per hour-of-day, split by
+      weekday and weekend.
+
+      GRAIN WARNING: this is not a time series. Row "hour 13" is not a
+      moment; it is the pooled behaviour of 13:00 across every day observed.
+      Never join it to anything on a timestamp.
+
+      mean_deviation_eur_mwh removes each day's own price level, so only the
+      shape remains and cheap days count equally with expensive ones. It is
+      the column to use when comparing hours; mean_price_eur_mwh mixes shape
+      with level.
+    columns:
+      - name: dutch_hour
+        description: "Hour of the Dutch day, 0-23. Half the grain."
+        tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23]
+      - name: is_weekend
+        description: "The other half of the grain. Saturday and Sunday."
+        tests:
+          - not_null
+      - name: days_observed
+        description: "Distinct Dutch dates contributing to this row."
+        tests: 
+          - not_null
+      - name: slots_observed
+        description: "Market time units pooled into this row."
+        tests:
+          - not_null
+      - name: mean_deviation_eur_mwh
+        description: "Mean of each slot's deviation from its own day's mean."
+        tests: 
+          - not_null
+      - name: p10_p90_spread_eur_mwh
+        description: >
+          p90 minus p10: how unpredictable this hour is across days, ignoring
+          the extreme tails.
+        tests:
+          - not_null
+
+
+    

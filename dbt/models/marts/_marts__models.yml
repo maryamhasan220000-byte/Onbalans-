@@ -1,0 +1,46 @@
+version: 2
+
+models:
+  - name: fct_balance_delta
+    description: >
+      Analysis-ready fact table. One row per 12-second grid measurement.
+      Materialized as a table because dashboards query it repeatedly.
+      Operational snapshot data; Settlement Prices is leading for settlement.
+    columns:
+      - name: interval_start
+        description: "Start of the measurement window, UTC. Grain of this table."
+        tests:
+          - unique
+          - not_null
+      - name: net_afrr_mw
+        description: "Local aFRR activation, up minus down. Settlement-relevant volume."
+        tests:
+          - not_null
+      - name: afrr_regulation_state
+        description: "Direction of local aFRR activation."
+        tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: ['up', 'down', 'both', 'none']
+
+  - name: agg_balance_delta_hourly
+    description: >
+      Hourly rollup for dashboards. One row per UTC hour, with Dutch local
+      labels. completeness_ratio flags hours where intervals are missing.
+    columns:
+      - name: bucket_start
+        description: "Start of the hour, UTC. Grain of this table."
+        tests:
+          - unique 
+          - not_null
+      - name: intervals_present
+        description: "Measurements in this hour. A complete hour holds 300."
+        tests:
+          - not_null
+      - name: completeness_ratio
+        description: >
+          intervals_present / 300. Below 1.0 means the tailer was down or
+          TenneT published nothing. Partial first and last hours are normal.
+        tests:
+          - not_null 

@@ -1,0 +1,23 @@
+version: 2
+
+models:
+  - name: stg_tennet_balance_delta
+    description: >
+      One row per 12-second grid measurement, typed. Casting only - no derived
+      columns, no busniess logic.
+    columns:
+      - name: interval_start
+        description: "Start of the measurement window, UTC. Primary Key."
+        tests:
+          - unique
+          - not_null
+      - name: sequence_within_dutch_day
+        description: >
+          TenneT's counter of 12-second blocks since Dutch local midnight.
+          Resets daily, so NOT unique and never a join key.
+        tests:
+          - not_null
+      - name: mid_price_eur_mwh
+        description: "Midpoint regulation price. Null means TenneT sent no value."
+      - name: afrr_up_mw
+        description: "Upward aFRR activated, MW. Null means the source text failed tp parse."

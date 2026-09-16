@@ -1,0 +1,78 @@
+version: 2
+
+models:
+  - name: int_balance_delta__enriched
+    description: >
+      One row per 12-second measurement with derived columns: a net figure
+      per balancing mechanism, Dutch local calender fields, aFRR regulation
+      state, parse-completeness flag and publication lag. No aggregation.
+
+      The five mechanisms are NOT summable into a single system imbalance:
+      IGCC is aFRR avoided by netting rather than power activated, and
+      PICASSO's direction carries two opposite physical meanings. The only
+      cross-mechanism total is net_local_activation_mw (aFRR + mFRRda).
+
+      Source is TenneT Balance Delta, which is operational snapshot data.
+      TenneT states the Settlement Prices publication is leading for
+      settlement.
+    columns:
+      - name: interval_start
+        description: "Start of the measurement window, UTC. Grain of this model."
+        tests:
+          - unique
+          - not_null
+      - name: dutch_date
+        description: >
+          Calender date in Europe/Amsterdam. Derived with a named timezone,
+          so DST is handled by Postgres rather than hardcoded offset.
+        tests:
+          - not_null
+      - name: dutch_hour
+        description: "Hour 0-23 in Dutch local time"
+        tests:
+          - not_null
+      - name: net_afrr_mw
+        description: >
+          Local aFRR activation, up minus down. TenneT states the balancing
+          energy and imbalance price derive from local activated aFRR plus
+          incident reserves, so this is the settlement-relevant volume.
+        tests:
+          - not_null
+      - name: net_igcc_mw
+        description: >
+          Imbalance netting: aFRR AVOIDED by netting against other TSOs.
+          Not additional activated power. Never add this to net_afrr_mw.
+        tests:
+        - not_null
+
+      - name: net_picasso_mw
+        description: >
+          Cross-border aFRR exchange. TenneT gives each direction two
+          opposite physical meanings, so the sign alone is not interpretable.
+        tests:
+          - not_null
+
+      - name: net_local_activation_mw
+        description: >
+          net_afrr_mw + net_mfrrda_mw. Local physical levers only. Excludes
+          IGCC (avoided activation) and PICASSO (ambiguous sign).
+        tests: 
+          - not_null
+
+      - name: afrr_regulation_state
+        description: >
+          Direction of local aFRR activation. Based on aFRR alone because
+          that is what determines the price.
+        tests:
+          - not_null
+          - accepted_values:
+              arguments: 
+                values: ['up', 'down', 'both', 'none']
+      - name: null_component_count
+        description: >
+          How many of the ten volumne components failed to parse. Above zero
+          means the totals are understated for that row.
+        tests:
+          - not_null
+          
+          

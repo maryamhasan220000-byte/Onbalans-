@@ -1,0 +1,41 @@
+services:
+  timescaledb:
+    image: timescale/timescaledb:latest-pg16
+    container_name: onbalans-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: onbalans
+      POSTGRES_USER: onbalans
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    ports:
+      - "5433:5432"
+    volumes:
+      - onbalans_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U onbalans -d onbalans"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+  grafana:
+    image: grafana/grafana:11.2.0
+    container_name: onbalans-grafana
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_ADMIN_PASSWORD}
+      - GF_USER_ALLOW_SIGN_UP=false
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./grafana/provisioning:/etc/grafana/provisioning
+    depends_on:
+      - timescaledb
+
+volumes:
+  onbalans_pgdata:
+  grafana_data:
+
+
+      
+      
